@@ -1,0 +1,40 @@
+from qiskit import QuantumCircuit, transpile
+from qiskit_ibm_runtime import QiskitRuntimeService, Sampler, Session
+from dotenv import load_dotenv
+import os
+
+TARGET_BACKEND = "ibm_brisbane"
+TRANSPILE_OPTIMIZATION = 3
+
+load_dotenv()
+quantum_api_key = os.getenv("IBM_API_TOKEN")
+if not quantum_api_key:
+    print("Erreur: IBM_API_TOKEN manquant dans le fichier .env")
+    exit(1)
+
+try:
+    quantum_service = QiskitRuntimeService(channel="ibm_quantum", token=quantum_api_key)
+    quantum_backend = quantum_service.backend(TARGET_BACKEND)
+except Exception as e:
+    print(f"Erreur de connexion à IBM Quantum: {e}")
+    exit(1)
+
+quantum_circuit = QuantumCircuit(2)
+quantum_circuit.h(0)
+quantum_circuit.cx(0, 1)
+quantum_circuit.measure_all()
+
+try:
+    optimized_circuit = transpile(quantum_circuit, backend=quantum_backend, optimization_level=TRANSPILE_OPTIMIZATION)
+except Exception as e:
+    print(f"Erreur lors de la transpilation: {e}")
+    exit(1)
+
+try:
+    with Session(backend=quantum_backend) as quantum_session:
+        quantum_sampler = Sampler(mode=quantum_session)
+        quantum_job = quantum_sampler.run([optimized_circuit])
+        print(f"Job ID: {quantum_job.job_id()}")
+except Exception as e:
+    print(f"Erreur lors de l'exécution du circuit: {e}")
+    exit(1)
